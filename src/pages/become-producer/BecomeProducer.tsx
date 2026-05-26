@@ -9,7 +9,7 @@ import profileMusic from "../../assets/profile-song.mp3";
 import axios from "axios";
 
 // Unified Production Backend Fallback URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://prime-pit-backend-production-3a1f.up.railway.app/";
 
 interface FormData {
   fullname: string;
@@ -203,7 +203,8 @@ const BecomeProducer: React.FC = () => {
     additionalInfo: "",
   });
 
-  const [hasPaid, setHasPaid] = useState(false);
+  // Switch hasPaid to true initially to prevent screen layout conflicts before user finishes the form
+  const [hasPaid, setHasPaid] = useState(true); 
   const [billingEmail, setBillingEmail] = useState("");
   const [cardName, setCardName] = useState("");
   const [transactionId] = useState(() => `FLX-${Math.floor(100000 + Math.random() * 900000)}`);
@@ -245,7 +246,7 @@ const BecomeProducer: React.FC = () => {
         setCheckoutStep("Verifying payment session with secure gateway...");
 
         try {
-          const formattedBase = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
+          const formattedBase = API_BASE_URL?.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
           const response = await axios.get(`${formattedBase}api/stripe/producer-payment/verify`, {
             params: { sessionId },
           });
@@ -266,6 +267,7 @@ const BecomeProducer: React.FC = () => {
             localStorage.removeItem("pending_producer_email");
             localStorage.removeItem("pending_producer_name");
 
+            setHasPaid(true);
             setCheckoutSuccess(true);
           }
         } catch (err: any) {
@@ -337,6 +339,7 @@ const BecomeProducer: React.FC = () => {
     };
   }, []);
 
+  // SECURE NATIVE STRIPE CHECKOUT ROUTE
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -353,7 +356,7 @@ const BecomeProducer: React.FC = () => {
     setCheckoutStep("Connecting to secure Stripe payment gateway...");
 
     try {
-      const formattedBase = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
+      const formattedBase = API_BASE_URL?.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
       const response = await axios.post(`${formattedBase}api/stripe/producer/subscribe`, {
         email: billingEmail.trim(),
         fullName: cardName.trim(),
@@ -378,7 +381,7 @@ const BecomeProducer: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // CLEANED FORMS STEP VALIDATION GUARDS ENGINE
+  // HANDLES MULTI-STEP VERIFICATION AND DISPATCHES EMAIL VIA BACKEND ROUTE BEFORE OPENING CHECKOUT
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -411,9 +414,35 @@ const BecomeProducer: React.FC = () => {
       return;
     }
 
-    // Step 4 Verification: Fire submission payload block directly to the server context handler
+    // Step 4 Verification Bounds
     if (!formData.whyUs.trim()) return toast.error("Please explain your choice selecting Flixora networks.");
 
+    setLoading(true);
+    try {
+      // NATIVE EMAIL HANDSHAKE INTERCEPT: Dispatches payload straight to your custom server route before unlocking checkout
+      const formattedBase = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
+      await axios.post(`${formattedBase}api/producer/send-lead-mail`, {
+        ...formData,
+        submittedAt: new Date().toLocaleString()
+      });
+
+      // Hydrate billing checkout state fields out of Step 1 form structures automatically
+      setBillingEmail(formData.email.trim());
+      setCardName(formData.fullname.trim());
+      
+      // Shift checkout tracker layout state to false to close the questionnaire and mount checkout panels
+      setHasPaid(false); 
+      toast.success("Application profile dispatched! Moving to secure subscription checkpoint...");
+    } catch (mailRelayErr: any) {
+      console.error("Custom backend mail relay route timeout exception:", mailRelayErr);
+      toast.error(mailRelayErr?.response?.data?.message || "Mail forwarding error. Please double check backend credentials.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // FINAL PLATFORM ACCOUNT ENROLLMENT ROUTE (FIRED POST-PAYMENT COMPLETE HANDSHAKES)
+  const handleFinalRegistrationSubmit = async () => {
     setLoading(true);
     try {
       const payload = {
@@ -443,7 +472,7 @@ const BecomeProducer: React.FC = () => {
         password: response?.credentials?.password || response?.password || "Verification Outstanding",
       });
 
-      toast.success("Application documentation captured successfully!");
+      toast.success("Producer workspace dashboard profiles populated successfully!");
     } catch (err: any) {
       toast.error(err?.message || "Registration serialization parsing timeout.");
     } finally {
@@ -517,10 +546,10 @@ const BecomeProducer: React.FC = () => {
           </div>
 
           <h2 className="text-white text-2xl md:text-4xl font-extrabold font-['Poppins'] mb-3 tracking-wide">
-            Payment Successful!
+            Payment Verified Successfully!
           </h2>
           <p className="text-white/70 text-xs md:text-base font-medium max-w-md mb-8 px-2">
-            Your payment of <span className="text-white font-bold">$100.00</span> for the Flixora Producer License has been verified. You can now complete your registration.
+            Your payment for the Flixora Producer License was confirmed. Click below to provision your workspace security parameters.
           </p>
 
           <div className="bg-white/5 rounded-lg px-4 py-3 md:px-6 md:py-4 mb-8 w-full max-w-sm border border-white/10 text-left space-y-2">
@@ -539,18 +568,11 @@ const BecomeProducer: React.FC = () => {
           </div>
 
           <button
-            onClick={() => {
-              setCheckoutSuccess(false);
-              resumeGlobalAudio();
-              setFormData((prev) => ({
-                ...prev,
-                email: billingEmail || prev.email,
-              }));
-              setHasPaid(true);
-            }}
-            className="w-full max-w-sm h-12 md:h-14 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl border border-green-400/30 flex items-center justify-center text-white text-sm md:text-base font-black font-['Archivo'] uppercase tracking-wider hover:from-green-400 hover:to-emerald-500 transition-all shadow-[0_0_30px_rgba(34,197,94,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+            onClick={handleFinalRegistrationSubmit}
+            disabled={loading}
+            className="w-full max-w-sm h-12 md:h-14 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl border border-green-400/30 flex items-center justify-center text-white text-sm md:text-base font-black font-['Archivo'] uppercase tracking-wider hover:from-green-400 hover:to-emerald-500 transition-all shadow-[0_0_30px_rgba(34,197,94,0.3)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-55"
           >
-            Complete Registration Form
+            {loading ? "Generating Credentials..." : "Generate Producer Credentials"}
           </button>
         </div>
       </Shell>
@@ -603,7 +625,7 @@ const BecomeProducer: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-4 pt-4 border-t border-white/5 mt-4">
-                  <button type="button" onClick={() => navigate(-1)} className="text-white/60 text-xs md:text-sm font-medium hover:text-white hover:underline transition-colors">Cancel</button>
+                  <button type="button" onClick={() => { setStep(4); setHasPaid(true); }} className="text-white/60 text-xs md:text-sm font-medium hover:text-white hover:underline transition-colors">Back to Form</button>
                   <button type="submit" className="flex-1 h-12 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-md text-xs md:text-sm font-bold tracking-wider uppercase hover:from-emerald-500 hover:to-teal-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 cursor-pointer">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"></path>
@@ -748,7 +770,7 @@ const BecomeProducer: React.FC = () => {
               </>
             ) : (
               <button type="submit" disabled={loading} className="w-full max-w-sm h-12 md:h-14 bg-white/10 rounded-2xl border border-white backdrop-blur-lg flex items-center justify-center text-white text-sm md:text-base font-black font-['Archivo'] uppercase tracking-wide hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                {loading ? "Submitting…" : "Submit"}
+                {loading ? "Submitting…" : "Submit Details"}
               </button>
             )}
           </div>
