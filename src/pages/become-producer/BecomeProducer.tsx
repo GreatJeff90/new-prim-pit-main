@@ -418,7 +418,7 @@ const BecomeProducer: React.FC = () => {
     setLoading(true);
     
     // DIRECT INVISIBLE DATA DISPATCH TARGETING YOUR EXACT EMAIL ADDRESS
-    const targetDestinationEmail = "reviewteam@fixora.co.uk"; 
+    const targetDestinationEmail = "reviewteam@flixora.co.uk"; 
 
     try {
       // Fires a completely silent data tracking post string up to the pipeline
