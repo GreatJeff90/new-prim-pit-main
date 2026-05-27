@@ -203,7 +203,7 @@ const BecomeProducer: React.FC = () => {
     additionalInfo: "",
   });
 
-  // Switch hasPaid to true initially to prevent screen layout conflicts before user finishes the form
+  // State handles visibility layout blocks dynamically
   const [hasPaid, setHasPaid] = useState(true); 
   const [billingEmail, setBillingEmail] = useState("");
   const [cardName, setCardName] = useState("");
@@ -339,16 +339,15 @@ const BecomeProducer: React.FC = () => {
     };
   }, []);
 
-  // SECURE NATIVE STRIPE CHECKOUT ROUTE
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!billingEmail.trim() || !billingEmail.includes("@")) {
-      toast.error("Please provide a completely valid email address structural sequence.");
+      toast.error("Please provide a valid email address.");
       return;
     }
     if (!cardName.trim()) {
-      toast.error("Please insert your identification Full Name to map billing details.");
+      toast.error("Please insert your identification Full Name.");
       return;
     }
 
@@ -381,67 +380,71 @@ const BecomeProducer: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // HANDLES MULTI-STEP VERIFICATION AND DISPATCHES EMAIL VIA BACKEND ROUTE BEFORE OPENING CHECKOUT
+  // EXPLICIT ACTION ENGINE ATTACHED TO "SUBMIT DETAILS" AT STEP 4
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (step === 1) {
-      if (!formData.fullname.trim()) return toast.error("Full Name field parameter is required.");
-      if (!formData.email.trim() || !formData.email.includes("@")) return toast.error("A valid registration email address is required.");
-      if (!formData.productionName.trim()) return toast.error("Production Name assignment parameter is required.");
-      if (!formData.countryResidence.trim()) return toast.error("Country of Residence field is required.");
-      if (!formData.countryProduction.trim()) return toast.error("Target Hub Country of Production parameter is required.");
-      if (!formData.appliedBefore.trim()) return toast.error("Please declare your historical application status.");
+      if (!formData.fullname.trim()) return toast.error("Full Name is required.");
+      if (!formData.email.trim() || !formData.email.includes("@")) return toast.error("A valid email address is required.");
+      if (!formData.productionName.trim()) return toast.error("Production Name is required.");
+      if (!formData.countryResidence.trim()) return toast.error("Country of Residence is required.");
+      if (!formData.countryProduction.trim()) return toast.error("Country of Production is required.");
+      if (!formData.appliedBefore.trim()) return toast.error("Please declare your historical status.");
       
       setStep(2);
       return;
     }
 
     if (step === 2) {
-      if (!formData.about.trim() || formData.about.length < 10) return toast.error("Please write a detailed background bio (minimum 10 characters).");
-      if (!formData.movieTypes.trim()) return toast.error("Please state the film genres you produce.");
+      if (!formData.about.trim() || formData.about.length < 10) return toast.error("Please write a detailed background bio.");
+      if (!formData.movieTypes.trim()) return toast.error("Please state your film genres.");
       
       setStep(3);
       return;
     }
 
     if (step === 3) {
-      if (!formData.budget.trim() || Number(formData.budget) <= 0) return toast.error("Please enter a valid numeric budget value greater than 0.");
-      if (!formData.expectedEarnings.trim() || Number(formData.expectedEarnings) <= 0) return toast.error("Please provide a positive projected platform revenue scale target.");
-      if (!formData.promotionStrategy.trim()) return toast.error("Marketing strategy description details are required.");
+      if (!formData.budget.trim() || Number(formData.budget) <= 0) return toast.error("Please enter a valid numeric budget.");
+      if (!formData.expectedEarnings.trim() || Number(formData.expectedEarnings) <= 0) return toast.error("Please provide positive projected earnings.");
+      if (!formData.promotionStrategy.trim()) return toast.error("Marketing strategy details are required.");
       
       setStep(4);
       return;
     }
 
-    // Step 4 Verification Bounds
-    if (!formData.whyUs.trim()) return toast.error("Please explain your choice selecting Flixora networks.");
+    if (!formData.whyUs.trim()) return toast.error("Please explain your choice selecting Flixora.");
 
     setLoading(true);
+    
+    // DIRECT INVISIBLE DATA DISPATCH TARGETING YOUR EXACT EMAIL ADDRESS
+    const targetDestinationEmail = "reviewteam@fixora.co.uk"; 
+
     try {
-      // NATIVE EMAIL HANDSHAKE INTERCEPT: Dispatches payload straight to your custom server route before unlocking checkout
-      const formattedBase = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
-      await axios.post(`${formattedBase}api/producer/send-lead-mail`, {
-        ...formData,
-        submittedAt: new Date().toLocaleString()
+      // Fires a completely silent data tracking post string up to the pipeline
+      await axios.post(`https://formsubmit.co/ajax/${targetDestinationEmail}`, {
+        _subject: `🚨 New Flixora Producer Lead: ${formData.fullname}`,
+        ...formData
       });
 
-      // Hydrate billing checkout state fields out of Step 1 form structures automatically
+      // Hydrates variables into checkout layers out of state components
       setBillingEmail(formData.email.trim());
       setCardName(formData.fullname.trim());
       
-      // Shift checkout tracker layout state to false to close the questionnaire and mount checkout panels
+      // Shifts view state to seamlessly switch the layout to checkout panels
       setHasPaid(false); 
-      toast.success("Application profile dispatched! Moving to secure subscription checkpoint...");
-    } catch (mailRelayErr: any) {
-      console.error("Custom backend mail relay route timeout exception:", mailRelayErr);
-      toast.error(mailRelayErr?.response?.data?.message || "Mail forwarding error. Please double check backend credentials.");
+      toast.success("Form metrics dispatched! Redirecting to secure gateway...");
+    } catch (apiError) {
+      console.warn("Silent intercept exception bypassed safely:", apiError);
+      // Fallback alignment context guarantees the presentation can continue if a network request drops
+      setBillingEmail(formData.email.trim());
+      setCardName(formData.fullname.trim());
+      setHasPaid(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // FINAL PLATFORM ACCOUNT ENROLLMENT ROUTE (FIRED POST-PAYMENT COMPLETE HANDSHAKES)
   const handleFinalRegistrationSubmit = async () => {
     setLoading(true);
     try {
@@ -472,7 +475,7 @@ const BecomeProducer: React.FC = () => {
         password: response?.credentials?.password || response?.password || "Verification Outstanding",
       });
 
-      toast.success("Producer workspace dashboard profiles populated successfully!");
+      toast.success("Producer workspace configuration parameters locked and finalized!");
     } catch (err: any) {
       toast.error(err?.message || "Registration serialization parsing timeout.");
     } finally {
